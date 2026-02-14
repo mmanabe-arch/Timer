@@ -5,6 +5,7 @@ import { TaskListView } from './components/TaskListView';
 import { TimerView } from './components/TimerView';
 import { CompactTimerView } from './components/CompactTimerView';
 import { DailySummaryView } from './components/DailySummaryView';
+import { SummaryHistoryView } from './components/SummaryHistoryView';
 import { PiPTimerView } from './components/PiPTimerView';
 import { OverlayTimerView } from './components/OverlayTimerView';
 
@@ -18,6 +19,10 @@ export default function App() {
 
   if (timer.viewMode === 'summary') {
     return <DailySummaryView timer={timer} />;
+  }
+
+  if (timer.viewMode === 'history') {
+    return <SummaryHistoryView timer={timer} />;
   }
 
   return (

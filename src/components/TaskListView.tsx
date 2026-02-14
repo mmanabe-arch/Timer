@@ -51,7 +51,7 @@ export function TaskListView({ timer }: { timer: Timer }) {
             const active = timer.activeTaskId === task.id;
             const overtime = isOvertime(task);
             return (
-              <div key={task.id} className={`task-row ${active ? 'active' : ''}`}>
+              <div key={task.id} className={`task-row ${active ? 'active' : ''} ${task.isCarryover ? 'carryover' : ''}`}>
                 <button
                   className="check-btn"
                   onClick={() => timer.completeTask(task.id)}
@@ -71,6 +71,7 @@ export function TaskListView({ timer }: { timer: Timer }) {
                 <div className="task-info">
                   <span className={`task-name ${task.isCompleted ? 'completed' : ''} ${active ? 'active-name' : ''}`}>
                     {task.name}
+                    {task.isCarryover && <span className="carryover-badge">持越</span>}
                   </span>
                   <span className="task-meta">
                     {task.estimatedMinutes}分

@@ -1,10 +1,28 @@
-import { useState, useRef, useCallback } from 'react';
+import { useState, useRef, useCallback, useEffect } from 'react';
 import { TaskItem, createTask, HOURLY_RATE } from '../models/TaskModel';
+import {
+  saveTasks,
+  loadTodayTasks,
+  loadCarryoverTasks,
+  autoSaveYesterdaySummary,
+  saveDailySummary,
+} from '../models/storage';
 
-export type ViewMode = 'normal' | 'compact' | 'summary';
+export type ViewMode = 'normal' | 'compact' | 'summary' | 'history';
+
+function initTasks(): TaskItem[] {
+  autoSaveYesterdaySummary();
+
+  const today = loadTodayTasks();
+  if (today.length > 0) return today;
+
+  // First load of the day: bring carryover tasks
+  const carryover = loadCarryoverTasks();
+  return carryover;
+}
 
 export function useTimer() {
-  const [tasks, setTasks] = useState<TaskItem[]>([]);
+  const [tasks, setTasks] = useState<TaskItem[]>(initTasks);
   const [activeTaskId, setActiveTaskId] = useState<string | null>(null);
   const [isRunning, setIsRunning] = useState(false);
   const [viewMode, setViewMode] = useState<ViewMode>('normal');
@@ -17,6 +35,25 @@ export function useTimer() {
   const totalCost = (totalElapsedSeconds / 3600) * HOURLY_RATE;
   const totalEstimatedCost = (totalEstimatedSeconds / 3600) * HOURLY_RATE;
   const completedTaskCount = tasks.filter((t) => t.isCompleted).length;
+
+  // Persist tasks on every change
+  useEffect(() => {
+    saveTasks(tasks);
+  }, [tasks]);
+
+  // Auto-save summary periodically (every time tasks change and there's activity)
+  useEffect(() => {
+    if (tasks.length === 0) return;
+    const today = new Date().toISOString().slice(0, 10);
+    saveDailySummary({
+      date: today,
+      tasks,
+      totalElapsedSeconds: tasks.reduce((s, t) => s + t.elapsedSeconds, 0),
+      totalEstimatedSeconds: tasks.reduce((s, t) => s + t.estimatedMinutes * 60, 0),
+      completedCount: tasks.filter((t) => t.isCompleted).length,
+      totalCount: tasks.length,
+    });
+  }, [tasks]);
 
   const stopInterval = useCallback(() => {
     if (timerRef.current) {
@@ -55,7 +92,6 @@ export function useTimer() {
   const selectTask = useCallback((id: string) => {
     setActiveTaskId((currentActiveId) => {
       if (currentActiveId === id) {
-        // Toggle pause/resume
         setIsRunning((running) => {
           if (running) {
             stopInterval();
@@ -67,7 +103,6 @@ export function useTimer() {
         });
         return currentActiveId;
       } else {
-        // Switch task
         stopInterval();
         startInterval(id);
         setIsRunning(true);

@@ -4,6 +4,8 @@ export interface TaskItem {
   estimatedMinutes: number;
   elapsedSeconds: number;
   isCompleted: boolean;
+  isCarryover?: boolean;
+  carryoverFrom?: string; // YYYY-MM-DD
 }
 
 export const HOURLY_RATE = 1200;

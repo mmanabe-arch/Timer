@@ -1,3 +1,4 @@
+import { useMemo } from 'react';
 import type { useTimer } from '../hooks/useTimer';
 import {
   formatTime,
@@ -7,16 +8,28 @@ import {
   estimatedCost,
   estimatedSeconds,
 } from '../models/TaskModel';
+import { generateFeedback } from '../models/feedback';
 
 type Timer = ReturnType<typeof useTimer>;
 
 export function DailySummaryView({ timer }: { timer: Timer }) {
   const timeDiff = timer.totalElapsedSeconds - timer.totalEstimatedSeconds;
   const costDiff = timer.totalCost - timer.totalEstimatedCost;
-  const completionRate =
-    timer.tasks.length > 0
-      ? timer.completedTaskCount / timer.tasks.length
-      : 0;
+
+  const todaySummary = useMemo(
+    () => ({
+      date: new Date().toISOString().slice(0, 10),
+      tasks: timer.tasks,
+      totalElapsedSeconds: timer.totalElapsedSeconds,
+      totalEstimatedSeconds: timer.totalEstimatedSeconds,
+      completedCount: timer.completedTaskCount,
+      totalCount: timer.tasks.length,
+    }),
+    [timer.tasks, timer.totalElapsedSeconds, timer.totalEstimatedSeconds, timer.completedTaskCount]
+  );
+
+  const feedback = useMemo(() => generateFeedback(todaySummary), [todaySummary]);
+  const carryoverTasks = timer.tasks.filter((t) => t.isCarryover);
 
   return (
     <div className="app summary-view">
@@ -29,12 +42,61 @@ export function DailySummaryView({ timer }: { timer: Timer }) {
           戻る
         </button>
         <h1 className="app-title">本日の業務サマリー</h1>
-        <span />
+        <button
+          className="icon-btn"
+          onClick={() => timer.setViewMode('history')}
+          title="過去の履歴"
+        >
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.3">
+            <circle cx="8" cy="8" r="6.5" />
+            <path d="M8 4.5V8l2.5 1.5" />
+          </svg>
+        </button>
       </header>
 
       <div className="divider" />
 
       <div className="summary-content">
+        {/* Claude Grade */}
+        <div className="claude-grade-card">
+          <div className="claude-avatar">
+            <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+              <circle cx="10" cy="10" r="9" stroke="currentColor" strokeWidth="1.5" />
+              <text x="10" y="14" textAnchor="middle" fontSize="10" fill="currentColor" fontWeight="700">C</text>
+            </svg>
+          </div>
+          <div className="claude-grade-body">
+            <div className="claude-grade-row">
+              <span className="claude-label">Claudeの評価</span>
+              <span
+                className="claude-grade-value"
+                style={{ color: feedback.gradeColor }}
+              >
+                {feedback.grade}
+              </span>
+            </div>
+            <p className="claude-headline">{feedback.headline}</p>
+          </div>
+        </div>
+
+        {/* Feedback Points */}
+        <section className="summary-section">
+          <h2 className="section-title">Claudeからのフィードバック</h2>
+          <div className="feedback-list">
+            {feedback.points.map((point, i) => (
+              <div key={i} className={`feedback-point ${point.type}`}>
+                <span className="feedback-icon">
+                  {point.type === 'critical' && '!!'}
+                  {point.type === 'warning' && '!'}
+                  {point.type === 'info' && '-'}
+                  {point.type === 'praise' && '+'}
+                </span>
+                <span className="feedback-text">{point.text}</span>
+              </div>
+            ))}
+          </div>
+        </section>
+
         {/* Stat cards */}
         <div className="stat-cards">
           <div className="stat-card blue">
@@ -49,6 +111,17 @@ export function DailySummaryView({ timer }: { timer: Timer }) {
           </div>
         </div>
 
+        {/* Carryover notice */}
+        {carryoverTasks.length > 0 && (
+          <div className="carryover-notice">
+            <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="var(--orange)" strokeWidth="1.5">
+              <path d="M7 1v6M7 10v1" />
+              <circle cx="7" cy="7" r="6" />
+            </svg>
+            <span>前日からの持ち越しタスクが{carryoverTasks.length}個あります</span>
+          </div>
+        )}
+
         {/* Task breakdown */}
         <section className="summary-section">
           <h2 className="section-title">タスク別詳細</h2>
@@ -60,13 +133,19 @@ export function DailySummaryView({ timer }: { timer: Timer }) {
                 const diff = task.elapsedSeconds - estimatedSeconds(task);
                 const overtime = isOvertime(task);
                 return (
-                  <div key={task.id} className="task-summary-row">
+                  <div
+                    key={task.id}
+                    className={`task-summary-row ${task.isCarryover ? 'carryover' : ''}`}
+                  >
                     <span className={`summary-check ${task.isCompleted ? 'done' : ''}`}>
                       {task.isCompleted ? '✓' : '○'}
                     </span>
                     <div className="summary-task-info">
                       <span className={`summary-task-name ${task.isCompleted ? 'completed' : ''}`}>
                         {task.name}
+                        {task.isCarryover && (
+                          <span className="carryover-badge">持越</span>
+                        )}
                       </span>
                       <span className="summary-task-meta">
                         予定: {task.estimatedMinutes}分
@@ -92,15 +171,15 @@ export function DailySummaryView({ timer }: { timer: Timer }) {
           )}
         </section>
 
-        {/* Evaluation */}
+        {/* Evaluation summary */}
         <section className="summary-section">
-          <h2 className="section-title">本日の評価</h2>
+          <h2 className="section-title">数値サマリー</h2>
           <div className="eval-box">
             <div className="eval-row">
               <span className="eval-label">タスク完了率:</span>
-              <span className={`eval-value ${completionRate === 1 && timer.tasks.length > 0 ? 'text-green' : 'text-orange'}`}>
+              <span className={`eval-value ${timer.completedTaskCount === timer.tasks.length && timer.tasks.length > 0 ? 'text-green' : 'text-orange'}`}>
                 {timer.completedTaskCount} / {timer.tasks.length}
-                {timer.tasks.length > 0 && ` (${Math.round(completionRate * 100)}%)`}
+                {timer.tasks.length > 0 && ` (${Math.round((timer.completedTaskCount / timer.tasks.length) * 100)}%)`}
               </span>
             </div>
             <div className="eval-row">
@@ -123,59 +202,21 @@ export function DailySummaryView({ timer }: { timer: Timer }) {
                 <span className="eval-value text-blue">±¥0</span>
               )}
             </div>
-
-            <div className="eval-divider" />
-
-            <div className="eval-message">
-              <EvalMessage
-                completionRate={completionRate}
-                timeDiff={timeDiff}
-                hasTask={timer.tasks.length > 0}
-              />
-            </div>
           </div>
         </section>
+
+        {/* History link */}
+        <button
+          className="history-link-btn"
+          onClick={() => timer.setViewMode('history')}
+        >
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.3">
+            <circle cx="7" cy="7" r="5.5" />
+            <path d="M7 3.5V7l2 1.5" />
+          </svg>
+          過去の業務履歴を見る
+        </button>
       </div>
     </div>
-  );
-}
-
-function EvalMessage({
-  completionRate,
-  timeDiff,
-  hasTask,
-}: {
-  completionRate: number;
-  timeDiff: number;
-  hasTask: boolean;
-}) {
-  if (!hasTask) {
-    return <p className="text-secondary">タスクが設定されていません。</p>;
-  }
-  if (completionRate === 1 && timeDiff <= 0) {
-    return (
-      <p className="text-green">
-        全タスク完了、時間内に収まりました。効率的な作業でした。
-      </p>
-    );
-  }
-  if (completionRate === 1) {
-    return (
-      <p className="text-orange">
-        全タスク完了。ただし予定時間を超過しています。見積もりの精度を見直しましょう。
-      </p>
-    );
-  }
-  if (timeDiff <= 0) {
-    return (
-      <p className="text-blue">
-        時間に余裕がありますが、未完了タスクがあります。優先順位を確認しましょう。
-      </p>
-    );
-  }
-  return (
-    <p className="text-red">
-      未完了タスクがあり、時間も超過しています。タスクの分割や見積もりを見直しましょう。
-    </p>
   );
 }
