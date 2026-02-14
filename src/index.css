@@ -736,3 +736,119 @@ body {
   font-size: 12px;
   line-height: 1.5;
 }
+
+/* ===== PiP (Picture-in-Picture) Floating Timer ===== */
+.icon-btn-active {
+  color: var(--accent) !important;
+  background: var(--accent-bg);
+}
+
+.pip-timer {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  padding: 10px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  height: 100vh;
+  justify-content: center;
+}
+
+.pip-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.pip-task-name {
+  font-size: 11px;
+  color: var(--text-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  flex: 1;
+}
+
+.pip-close-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 2px;
+  border-radius: 3px;
+  color: var(--text-secondary);
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.pip-close-btn:hover {
+  background: var(--bg-secondary);
+}
+
+.pip-body {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+}
+
+.pip-time {
+  font-size: 26px;
+  font-weight: 300;
+  font-variant-numeric: tabular-nums;
+  font-family: 'SF Mono', 'Menlo', 'Consolas', monospace;
+  letter-spacing: -0.5px;
+}
+
+.pip-cost {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--orange);
+}
+
+.pip-spacer {
+  flex: 1;
+}
+
+.pip-ctrl-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  transition: background 0.15s;
+}
+
+.pip-ctrl-btn:hover {
+  background: var(--bg-secondary);
+}
+
+.pip-progress-track {
+  height: 3px;
+  background: var(--bg-secondary);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.pip-progress-fill {
+  height: 100%;
+  background: var(--accent);
+  border-radius: 2px;
+  transition: width 1s linear;
+}
+
+.pip-progress-fill.overtime {
+  background: var(--red);
+}
+
+.pip-empty {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 12px;
+  color: var(--text-secondary);
+  height: 100vh;
+  padding: 0 14px;
+}
