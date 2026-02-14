@@ -6,6 +6,7 @@ import { TimerView } from './components/TimerView';
 import { CompactTimerView } from './components/CompactTimerView';
 import { DailySummaryView } from './components/DailySummaryView';
 import { PiPTimerView } from './components/PiPTimerView';
+import { OverlayTimerView } from './components/OverlayTimerView';
 
 export default function App() {
   const timer = useTimer();
@@ -21,9 +22,14 @@ export default function App() {
 
   return (
     <div className="app">
-      {/* PiP portal */}
-      {pip.isOpen && pip.container.current && (
+      {/* PiP / Popup portal */}
+      {(pip.mode === 'pip' || pip.mode === 'popup') && pip.container.current && (
         <PiPTimerView timer={timer} container={pip.container.current} onClose={pip.close} />
+      )}
+
+      {/* In-page overlay fallback */}
+      {pip.mode === 'overlay' && (
+        <OverlayTimerView timer={timer} onClose={pip.close} />
       )}
 
       {/* Header */}

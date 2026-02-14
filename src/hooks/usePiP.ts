@@ -1,47 +1,51 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
 
+export type PiPMode = 'closed' | 'pip' | 'popup' | 'overlay';
+
 export function usePiP() {
   const [pipWindow, setPipWindow] = useState<Window | null>(null);
+  const [mode, setMode] = useState<PiPMode>('closed');
   const pipContainerRef = useRef<HTMLDivElement | null>(null);
 
-  const isSupported = 'documentPictureInPicture' in window;
-  const isOpen = pipWindow !== null && !pipWindow.closed;
+  const isOpen = mode !== 'closed';
+
+  const copyStyles = (targetDoc: Document) => {
+    for (const sheet of document.styleSheets) {
+      try {
+        if (sheet.href) {
+          const link = targetDoc.createElement('link');
+          link.rel = 'stylesheet';
+          link.href = sheet.href;
+          targetDoc.head.appendChild(link);
+        } else if (sheet.cssRules) {
+          const style = targetDoc.createElement('style');
+          for (const rule of sheet.cssRules) {
+            style.textContent += rule.cssText + '\n';
+          }
+          targetDoc.head.appendChild(style);
+        }
+      } catch {
+        // Cross-origin stylesheet, skip
+      }
+    }
+  };
 
   const open = useCallback(async () => {
-    // Document PiP API
+    // 1. Try Document PiP API (Chrome 116+)
     if ('documentPictureInPicture' in window) {
       try {
-        const pip = await (window as unknown as DocumentPictureInPicture)
-          .requestWindow({ width: 320, height: 120 });
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const dpip = (window as any).documentPictureInPicture;
+        const pip: Window = await dpip.requestWindow({ width: 320, height: 120 });
 
-        // Copy stylesheets into PiP window
-        for (const sheet of document.styleSheets) {
-          try {
-            if (sheet.href) {
-              const link = pip.document.createElement('link');
-              link.rel = 'stylesheet';
-              link.href = sheet.href;
-              pip.document.head.appendChild(link);
-            } else if (sheet.cssRules) {
-              const style = pip.document.createElement('style');
-              for (const rule of sheet.cssRules) {
-                style.textContent += rule.cssText + '\n';
-              }
-              pip.document.head.appendChild(style);
-            }
-          } catch {
-            // Cross-origin stylesheet, skip
-          }
-        }
+        copyStyles(pip.document);
 
-        // Add PiP-specific meta
         const meta = pip.document.createElement('meta');
         meta.name = 'viewport';
         meta.content = 'width=device-width, initial-scale=1.0';
         pip.document.head.appendChild(meta);
         pip.document.title = 'Task Timer';
 
-        // Create container
         const container = pip.document.createElement('div');
         container.id = 'pip-root';
         pip.document.body.appendChild(container);
@@ -49,56 +53,50 @@ export function usePiP() {
 
         pip.addEventListener('pagehide', () => {
           setPipWindow(null);
+          setMode('closed');
           pipContainerRef.current = null;
         });
 
         setPipWindow(pip);
+        setMode('pip');
+        return;
       } catch (e) {
-        console.error('Failed to open PiP window:', e);
+        console.warn('Document PiP failed, trying popup:', e);
       }
-      return;
     }
 
-    // Fallback: small popup window
-    const popup = window.open(
-      '',
-      'task-timer-pip',
-      'width=320,height=120,menubar=no,toolbar=no,location=no,status=no'
-    );
-    if (popup) {
-      popup.document.title = 'Task Timer';
+    // 2. Try popup window
+    try {
+      const popup = window.open(
+        '',
+        'task-timer-pip',
+        'width=320,height=140,menubar=no,toolbar=no,location=no,status=no'
+      );
+      if (popup) {
+        popup.document.title = 'Task Timer';
+        copyStyles(popup.document);
 
-      for (const sheet of document.styleSheets) {
-        try {
-          if (sheet.href) {
-            const link = popup.document.createElement('link');
-            link.rel = 'stylesheet';
-            link.href = sheet.href;
-            popup.document.head.appendChild(link);
-          } else if (sheet.cssRules) {
-            const style = popup.document.createElement('style');
-            for (const rule of sheet.cssRules) {
-              style.textContent += rule.cssText + '\n';
-            }
-            popup.document.head.appendChild(style);
-          }
-        } catch {
-          // skip
-        }
+        const container = popup.document.createElement('div');
+        container.id = 'pip-root';
+        popup.document.body.appendChild(container);
+        pipContainerRef.current = container;
+
+        popup.addEventListener('beforeunload', () => {
+          setPipWindow(null);
+          setMode('closed');
+          pipContainerRef.current = null;
+        });
+
+        setPipWindow(popup);
+        setMode('popup');
+        return;
       }
-
-      const container = popup.document.createElement('div');
-      container.id = 'pip-root';
-      popup.document.body.appendChild(container);
-      pipContainerRef.current = container;
-
-      popup.addEventListener('beforeunload', () => {
-        setPipWindow(null);
-        pipContainerRef.current = null;
-      });
-
-      setPipWindow(popup);
+    } catch (e) {
+      console.warn('Popup failed, using overlay:', e);
     }
+
+    // 3. Fallback: in-page overlay (always works)
+    setMode('overlay');
   }, []);
 
   const close = useCallback(() => {
@@ -106,6 +104,7 @@ export function usePiP() {
       pipWindow.close();
     }
     setPipWindow(null);
+    setMode('closed');
     pipContainerRef.current = null;
   }, [pipWindow]);
 
@@ -118,10 +117,5 @@ export function usePiP() {
     };
   }, [pipWindow]);
 
-  return { isSupported: isSupported || true, isOpen, open, close, container: pipContainerRef };
-}
-
-// Type for the Document PiP API
-interface DocumentPictureInPicture {
-  requestWindow(options?: { width?: number; height?: number }): Promise<Window>;
+  return { isOpen, mode, open, close, container: pipContainerRef };
 }
