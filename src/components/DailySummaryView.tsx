@@ -30,6 +30,10 @@ export function DailySummaryView({ timer }: { timer: Timer }) {
 
   const feedback = useMemo(() => generateFeedback(todaySummary), [todaySummary]);
   const carryoverTasks = timer.tasks.filter((t) => t.isCarryover);
+  const ratedTasks = timer.tasks.filter((t) => t.qualityRating);
+  const avgQuality = ratedTasks.length > 0
+    ? ratedTasks.reduce((s, t) => s + (t.qualityRating ?? 0), 0) / ratedTasks.length
+    : 0;
 
   return (
     <div className="app summary-view">
@@ -160,9 +164,25 @@ export function DailySummaryView({ timer }: { timer: Timer }) {
                         )}
                       </span>
                     </div>
-                    <div className="summary-task-cost">
-                      <span className="cost-actual">{formatCost(taskCost(task))}</span>
-                      <span className="cost-estimated">予定: {formatCost(estimatedCost(task))}</span>
+                    <div className="summary-task-right">
+                      {task.qualityRating && (
+                        <div className="summary-stars">
+                          {([1, 2, 3, 4, 5] as const).map((s) => (
+                            <svg key={s} width="10" height="10" viewBox="0 0 12 12">
+                              <path
+                                d="M6 1l1.5 3.1L11 4.5 8.5 7l.6 3.5L6 8.8 2.9 10.5l.6-3.5L1 4.5l3.5-.4z"
+                                fill={s <= task.qualityRating! ? '#ff9500' : 'none'}
+                                stroke={s <= task.qualityRating! ? '#ff9500' : '#ccc'}
+                                strokeWidth="0.8"
+                              />
+                            </svg>
+                          ))}
+                        </div>
+                      )}
+                      <div className="summary-task-cost">
+                        <span className="cost-actual">{formatCost(taskCost(task))}</span>
+                        <span className="cost-estimated">予定: {formatCost(estimatedCost(task))}</span>
+                      </div>
                     </div>
                   </div>
                 );
@@ -192,6 +212,15 @@ export function DailySummaryView({ timer }: { timer: Timer }) {
                 <span className="eval-value text-blue">予定通り</span>
               )}
             </div>
+            {ratedTasks.length > 0 && (
+              <div className="eval-row">
+                <span className="eval-label">平均クオリティ:</span>
+                <span className={`eval-value ${avgQuality >= 4 ? 'text-green' : avgQuality >= 3 ? 'text-blue' : avgQuality >= 2 ? 'text-orange' : 'text-red'}`}>
+                  {'★'.repeat(Math.round(avgQuality))}{'☆'.repeat(5 - Math.round(avgQuality))}
+                  {' '}({avgQuality.toFixed(1)}/5.0)
+                </span>
+              </div>
+            )}
             <div className="eval-row">
               <span className="eval-label">コスト差分:</span>
               {costDiff > 0 ? (

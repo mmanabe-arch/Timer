@@ -6,6 +6,7 @@ export interface TaskItem {
   isCompleted: boolean;
   isCarryover?: boolean;
   carryoverFrom?: string; // YYYY-MM-DD
+  qualityRating?: 1 | 2 | 3 | 4 | 5; // self-assessment after completion
 }
 
 export const HOURLY_RATE = 1200;

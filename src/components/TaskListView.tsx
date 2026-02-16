@@ -112,6 +112,29 @@ export function TaskListView({ timer }: { timer: Timer }) {
                     <path d="M3 3l6 6M9 3l-6 6" />
                   </svg>
                 </button>
+
+                {/* Quality rating - shown after completion */}
+                {task.isCompleted && (
+                  <div className="quality-rating">
+                    {([1, 2, 3, 4, 5] as const).map((star) => (
+                      <button
+                        key={star}
+                        className={`star-btn ${task.qualityRating && star <= task.qualityRating ? 'filled' : ''}`}
+                        onClick={() => timer.rateTask(task.id, star)}
+                        title={`クオリティ: ${star}`}
+                      >
+                        <svg width="12" height="12" viewBox="0 0 12 12">
+                          <path
+                            d="M6 1l1.5 3.1L11 4.5 8.5 7l.6 3.5L6 8.8 2.9 10.5l.6-3.5L1 4.5l3.5-.4z"
+                            fill={task.qualityRating && star <= task.qualityRating ? '#ff9500' : 'none'}
+                            stroke={task.qualityRating && star <= task.qualityRating ? '#ff9500' : '#999'}
+                            strokeWidth="0.8"
+                          />
+                        </svg>
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
             );
           })}

@@ -141,6 +141,67 @@ export function generateFeedback(summary: DailySummary): FeedbackResult {
     }
   }
 
+  // --- Quality self-assessment ---
+  const ratedTasks = tasks.filter((t) => t.qualityRating);
+  const unratedCompleted = tasks.filter((t) => t.isCompleted && !t.qualityRating);
+  const avgQuality = ratedTasks.length > 0
+    ? ratedTasks.reduce((s, t) => s + (t.qualityRating ?? 0), 0) / ratedTasks.length
+    : 0;
+
+  if (unratedCompleted.length > 0) {
+    points.push({
+      type: 'warning',
+      text: `${unratedCompleted.length}個の完了タスクが未評価です。自分の仕事の質を振り返る習慣がない人は成長しません。必ずクオリティ評価をつけてください。`,
+    });
+  }
+
+  if (ratedTasks.length > 0) {
+    if (avgQuality <= 2.0) {
+      points.push({
+        type: 'critical',
+        text: `平均クオリティ${avgQuality.toFixed(1)}/5.0。自分でも質が低いと認識しているなら、なぜ改善しないのですか？ 認識しているだけでは何も変わりません。`,
+      });
+    } else if (avgQuality <= 3.0) {
+      points.push({
+        type: 'warning',
+        text: `平均クオリティ${avgQuality.toFixed(1)}/5.0。「普通」で満足していませんか？ 普通の仕事は誰にでもできます。あなたの価値は何ですか？`,
+      });
+    } else if (avgQuality <= 4.0) {
+      points.push({
+        type: 'info',
+        text: `平均クオリティ${avgQuality.toFixed(1)}/5.0。自己評価は高めですが、それは客観的な視点ですか？ 甘い自己評価は成長の敵です。`,
+      });
+    } else {
+      points.push({
+        type: 'warning',
+        text: `平均クオリティ${avgQuality.toFixed(1)}/5.0。全て最高評価？ 自分に甘すぎます。本当にその品質で他者の期待を超えていますか？`,
+      });
+    }
+
+    // Check for specific low-quality + overtime combos
+    const lowQualityOvertime = ratedTasks.filter(
+      (t) => (t.qualityRating ?? 0) <= 2 && t.elapsedSeconds > t.estimatedMinutes * 60
+    );
+    if (lowQualityOvertime.length > 0) {
+      const names = lowQualityOvertime.map((t) => `「${t.name}」`).join('、');
+      points.push({
+        type: 'critical',
+        text: `${names}は時間超過かつ低品質。時間をかけた上に質も低いのは最悪の結果です。根本的にアプローチを見直してください。`,
+      });
+    }
+
+    // High self-rating but overtime
+    const highRatingOvertime = ratedTasks.filter(
+      (t) => (t.qualityRating ?? 0) >= 4 && t.elapsedSeconds > t.estimatedMinutes * 60 * 1.3
+    );
+    if (highRatingOvertime.length > 0) {
+      points.push({
+        type: 'warning',
+        text: `高品質を自称するタスクが${highRatingOvertime.length}個ありますが、いずれも時間超過です。品質と効率の両立ができていません。`,
+      });
+    }
+  }
+
   // --- Specific incomplete tasks ---
   if (incompleteTasks.length > 0 && incompleteTasks.length <= 3) {
     const names = incompleteTasks.map((t) => `「${t.name}」`).join('、');
@@ -152,11 +213,21 @@ export function generateFeedback(summary: DailySummary): FeedbackResult {
 
   // --- Grade ---
   let score = 0;
-  score += completionRate * 40; // max 40
-  score += Math.max(0, 1 - Math.abs(timeRatio - 1)) * 30; // max 30 (closer to 1.0 is better)
-  score += (overtimeTasks.length === 0 ? 15 : Math.max(0, 15 - overtimeTasks.length * 5)); // max 15
+  score += completionRate * 35; // max 35
+  score += Math.max(0, 1 - Math.abs(timeRatio - 1)) * 25; // max 25 (closer to 1.0 is better)
+  score += (overtimeTasks.length === 0 ? 10 : Math.max(0, 10 - overtimeTasks.length * 3)); // max 10
   score -= carryoverTasks.filter((t) => !t.isCompleted).length * 10;
-  score += (completionRate === 1 ? 15 : 0); // bonus for 100%
+  score += (completionRate === 1 ? 10 : 0); // bonus for 100%
+  // Quality contribution: max 15 points, penalize unrated tasks
+  if (ratedTasks.length > 0) {
+    score += (avgQuality / 5) * 15;
+  } else if (completedCount > 0) {
+    score -= 5; // penalty for not rating at all
+  }
+  // Penalty for all-5 self-rating (suspiciously high)
+  if (ratedTasks.length >= 3 && avgQuality >= 4.8) {
+    score -= 5;
+  }
 
   let grade: FeedbackResult['grade'];
   let gradeColor: string;

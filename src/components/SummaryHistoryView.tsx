@@ -156,6 +156,11 @@ export function SummaryHistoryView({ timer }: { timer: Timer }) {
                                       <span className="carryover-badge">持越</span>
                                     )}
                                   </span>
+                                  {t.qualityRating && (
+                                    <span className="history-task-stars">
+                                      {'★'.repeat(t.qualityRating)}{'☆'.repeat(5 - t.qualityRating)}
+                                    </span>
+                                  )}
                                   <span className="history-task-time">
                                     {formatTime(t.elapsedSeconds)}/{t.estimatedMinutes}分
                                   </span>

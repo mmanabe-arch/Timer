@@ -143,6 +143,12 @@ export function useTimer() {
     });
   }, [stopInterval]);
 
+  const rateTask = useCallback((id: string, rating: 1 | 2 | 3 | 4 | 5) => {
+    setTasks((prev) =>
+      prev.map((t) => (t.id === id ? { ...t, qualityRating: rating } : t))
+    );
+  }, []);
+
   return {
     tasks,
     activeTask,
@@ -162,5 +168,6 @@ export function useTimer() {
     pauseTimer,
     stopTimer,
     completeTask,
+    rateTask,
   };
 }
