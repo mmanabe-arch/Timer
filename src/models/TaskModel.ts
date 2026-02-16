@@ -1,3 +1,35 @@
+export const TASK_CATEGORIES = [
+  'dev',      // 開発
+  'review',   // レビュー
+  'meeting',  // 会議
+  'docs',     // 資料作成
+  'research', // 調査
+  'admin',    // 事務
+  'other',    // その他
+] as const;
+
+export type TaskCategory = typeof TASK_CATEGORIES[number];
+
+export const CATEGORY_LABELS: Record<TaskCategory, string> = {
+  dev: '開発',
+  review: 'レビュー',
+  meeting: '会議',
+  docs: '資料作成',
+  research: '調査',
+  admin: '事務',
+  other: 'その他',
+};
+
+export const CATEGORY_COLORS: Record<TaskCategory, string> = {
+  dev: '#007aff',
+  review: '#5856d6',
+  meeting: '#ff9500',
+  docs: '#34c759',
+  research: '#af52de',
+  admin: '#8e8e93',
+  other: '#636366',
+};
+
 export interface TaskItem {
   id: string;
   name: string;
@@ -6,18 +38,21 @@ export interface TaskItem {
   isCompleted: boolean;
   isCarryover?: boolean;
   carryoverFrom?: string; // YYYY-MM-DD
-  qualityRating?: 1 | 2 | 3 | 4 | 5; // self-assessment after completion
+  carryoverDays?: number; // how many days carried over
+  qualityRating?: 1 | 2 | 3 | 4 | 5;
+  category?: TaskCategory;
 }
 
 export const HOURLY_RATE = 1200;
 
-export function createTask(name: string, estimatedMinutes: number): TaskItem {
+export function createTask(name: string, estimatedMinutes: number, category?: TaskCategory): TaskItem {
   return {
     id: crypto.randomUUID(),
     name,
     estimatedMinutes,
     elapsedSeconds: 0,
     isCompleted: false,
+    category: category ?? 'other',
   };
 }
 
@@ -49,6 +84,11 @@ export function progress(task: TaskItem): number {
   const est = estimatedSeconds(task);
   if (est <= 0) return 0;
   return Math.min(task.elapsedSeconds / est, 1.0);
+}
+
+export function estimationAccuracy(task: TaskItem): number {
+  if (task.estimatedMinutes <= 0 || task.elapsedSeconds <= 0) return 1;
+  return task.elapsedSeconds / (task.estimatedMinutes * 60);
 }
 
 export function formatTime(seconds: number): string {

@@ -1,5 +1,5 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
-import { TaskItem, createTask, HOURLY_RATE } from '../models/TaskModel';
+import { TaskItem, createTask, HOURLY_RATE, TaskCategory } from '../models/TaskModel';
 import {
   saveTasks,
   loadTodayTasks,
@@ -16,7 +16,6 @@ function initTasks(): TaskItem[] {
   const today = loadTodayTasks();
   if (today.length > 0) return today;
 
-  // First load of the day: bring carryover tasks
   const carryover = loadCarryoverTasks();
   return carryover;
 }
@@ -36,12 +35,10 @@ export function useTimer() {
   const totalEstimatedCost = (totalEstimatedSeconds / 3600) * HOURLY_RATE;
   const completedTaskCount = tasks.filter((t) => t.isCompleted).length;
 
-  // Persist tasks on every change
   useEffect(() => {
     saveTasks(tasks);
   }, [tasks]);
 
-  // Auto-save summary periodically (every time tasks change and there's activity)
   useEffect(() => {
     if (tasks.length === 0) return;
     const today = new Date().toISOString().slice(0, 10);
@@ -73,8 +70,8 @@ export function useTimer() {
     }, 1000);
   }, [stopInterval]);
 
-  const addTask = useCallback((name: string, estimatedMinutes: number) => {
-    setTasks((prev) => [...prev, createTask(name, estimatedMinutes)]);
+  const addTask = useCallback((name: string, estimatedMinutes: number, category?: TaskCategory) => {
+    setTasks((prev) => [...prev, createTask(name, estimatedMinutes, category)]);
   }, []);
 
   const deleteTask = useCallback((id: string) => {
@@ -149,6 +146,13 @@ export function useTimer() {
     );
   }, []);
 
+  const updateEstimate = useCallback((id: string, newMinutes: number) => {
+    if (newMinutes <= 0) return;
+    setTasks((prev) =>
+      prev.map((t) => (t.id === id ? { ...t, estimatedMinutes: newMinutes } : t))
+    );
+  }, []);
+
   return {
     tasks,
     activeTask,
@@ -169,5 +173,6 @@ export function useTimer() {
     stopTimer,
     completeTask,
     rateTask,
+    updateEstimate,
   };
 }

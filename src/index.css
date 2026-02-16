@@ -1375,3 +1375,186 @@ body {
   flex-shrink: 0;
   letter-spacing: -1px;
 }
+
+/* ===== Category ===== */
+.task-cat-dot {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  margin-right: 4px;
+  vertical-align: middle;
+  flex-shrink: 0;
+}
+
+.category-selector {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+  margin-bottom: 6px;
+}
+
+.cat-chip {
+  font-size: 10px;
+  padding: 2px 8px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: none;
+  cursor: pointer;
+  color: var(--text-secondary);
+  transition: all 0.15s;
+}
+
+.cat-chip.selected {
+  background: rgba(0,0,0,0.04);
+  font-weight: 600;
+}
+
+.summary-cat-label {
+  font-size: 9px;
+  color: var(--text-secondary);
+  margin-left: 3px;
+}
+
+/* ===== Estimation Hint ===== */
+.estimation-hint {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  padding: 6px 8px;
+  background: rgba(0, 122, 255, 0.06);
+  border-radius: var(--radius-sm);
+  font-size: 10px;
+  color: var(--accent);
+  line-height: 1.5;
+}
+
+.estimation-hint svg {
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+/* ===== Inline Estimate Edit ===== */
+.inline-edit {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.inline-edit-input {
+  width: 40px;
+  padding: 1px 4px;
+  border: 1px solid var(--accent);
+  border-radius: 3px;
+  font-size: 11px;
+  background: var(--bg);
+  color: var(--text);
+  outline: none;
+}
+
+.estimate-clickable.editable {
+  cursor: pointer;
+  border-bottom: 1px dashed var(--text-secondary);
+}
+
+.estimate-clickable.editable:hover {
+  color: var(--accent);
+  border-color: var(--accent);
+}
+
+/* ===== Prediction Banner ===== */
+.prediction-banner {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border-radius: var(--radius-sm);
+  font-size: 11px;
+  margin-bottom: 6px;
+  line-height: 1.4;
+}
+
+.prediction-banner.danger {
+  background: rgba(255, 59, 48, 0.08);
+  color: var(--red);
+  border: 1px solid rgba(255, 59, 48, 0.2);
+}
+
+.prediction-banner.warning {
+  background: rgba(255, 149, 0, 0.08);
+  color: var(--orange);
+  border: 1px solid rgba(255, 149, 0, 0.2);
+}
+
+/* ===== Action Items ===== */
+.action-items {
+  margin-top: 8px;
+  padding: 8px;
+  background: rgba(52, 199, 89, 0.06);
+  border-radius: var(--radius-sm);
+  border: 1px solid rgba(52, 199, 89, 0.15);
+}
+
+.action-items-title {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--green);
+  margin-bottom: 4px;
+}
+
+.action-item {
+  display: flex;
+  gap: 6px;
+  font-size: 11px;
+  line-height: 1.5;
+  padding: 2px 0;
+  color: var(--text);
+}
+
+.action-arrow {
+  color: var(--green);
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+/* ===== Weekly Trend Table ===== */
+.trend-table {
+  font-size: 11px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.trend-header {
+  display: grid;
+  grid-template-columns: 1fr 50px 50px 40px 30px;
+  gap: 4px;
+  padding: 4px 6px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  font-size: 10px;
+  border-bottom: 1px solid var(--border);
+}
+
+.trend-row {
+  display: grid;
+  grid-template-columns: 1fr 50px 50px 40px 30px;
+  gap: 4px;
+  padding: 4px 6px;
+  border-radius: 3px;
+  font-variant-numeric: tabular-nums;
+}
+
+.trend-row.current {
+  background: var(--accent-bg);
+  font-weight: 500;
+}
+
+.trend-week {
+  color: var(--text);
+}
+
+.trend-grade {
+  font-weight: 700;
+  text-align: center;
+}

@@ -7,8 +7,12 @@ import {
   taskCost,
   estimatedCost,
   estimatedSeconds,
+  estimationAccuracy,
+  CATEGORY_LABELS,
+  CATEGORY_COLORS,
 } from '../models/TaskModel';
 import { generateFeedback } from '../models/feedback';
+import { getWeeklyTrends } from '../models/storage';
 
 type Timer = ReturnType<typeof useTimer>;
 
@@ -29,11 +33,16 @@ export function DailySummaryView({ timer }: { timer: Timer }) {
   );
 
   const feedback = useMemo(() => generateFeedback(todaySummary), [todaySummary]);
+  const trends = useMemo(() => getWeeklyTrends(4), []);
   const carryoverTasks = timer.tasks.filter((t) => t.isCarryover);
   const ratedTasks = timer.tasks.filter((t) => t.qualityRating);
   const avgQuality = ratedTasks.length > 0
     ? ratedTasks.reduce((s, t) => s + (t.qualityRating ?? 0), 0) / ratedTasks.length
     : 0;
+  const completedWithTime = timer.tasks.filter((t) => t.isCompleted && t.elapsedSeconds > 0);
+  const avgEstAcc = completedWithTime.length > 0
+    ? completedWithTime.reduce((s, t) => s + estimationAccuracy(t), 0) / completedWithTime.length
+    : 1;
 
   return (
     <div className="app summary-view">
@@ -99,6 +108,19 @@ export function DailySummaryView({ timer }: { timer: Timer }) {
               </div>
             ))}
           </div>
+
+          {/* Action items */}
+          {feedback.actionItems.length > 0 && (
+            <div className="action-items">
+              <h3 className="action-items-title">改善アクション</h3>
+              {feedback.actionItems.map((item, i) => (
+                <div key={i} className="action-item">
+                  <span className="action-arrow">→</span>
+                  <span>{item}</span>
+                </div>
+              ))}
+            </div>
+          )}
         </section>
 
         {/* Stat cards */}
@@ -146,9 +168,19 @@ export function DailySummaryView({ timer }: { timer: Timer }) {
                     </span>
                     <div className="summary-task-info">
                       <span className={`summary-task-name ${task.isCompleted ? 'completed' : ''}`}>
+                        {task.category && (
+                          <span className="task-cat-dot" style={{ background: CATEGORY_COLORS[task.category] }} />
+                        )}
                         {task.name}
+                        {task.category && (
+                          <span className="summary-cat-label">{CATEGORY_LABELS[task.category]}</span>
+                        )}
                         {task.isCarryover && (
-                          <span className="carryover-badge">持越</span>
+                          <span className="carryover-badge">
+                            {task.carryoverDays && task.carryoverDays > 1
+                              ? `${task.carryoverDays}日持越`
+                              : '持越'}
+                          </span>
                         )}
                       </span>
                       <span className="summary-task-meta">
@@ -221,6 +253,15 @@ export function DailySummaryView({ timer }: { timer: Timer }) {
                 </span>
               </div>
             )}
+            {completedWithTime.length > 0 && (
+              <div className="eval-row">
+                <span className="eval-label">見積もり精度:</span>
+                <span className={`eval-value ${avgEstAcc >= 0.8 && avgEstAcc <= 1.2 ? 'text-green' : avgEstAcc <= 1.5 ? 'text-orange' : 'text-red'}`}>
+                  {Math.round(avgEstAcc * 100)}%
+                  {avgEstAcc > 1.2 ? ' (過小見積もり)' : avgEstAcc < 0.8 ? ' (過大見積もり)' : ' (良好)'}
+                </span>
+              </div>
+            )}
             <div className="eval-row">
               <span className="eval-label">コスト差分:</span>
               {costDiff > 0 ? (
@@ -233,6 +274,37 @@ export function DailySummaryView({ timer }: { timer: Timer }) {
             </div>
           </div>
         </section>
+
+        {/* Weekly Trends */}
+        {trends.length > 0 && (
+          <section className="summary-section">
+            <h2 className="section-title">週次トレンド</h2>
+            <div className="trend-table">
+              <div className="trend-header">
+                <span>週</span>
+                <span>完了率</span>
+                <span>精度</span>
+                <span>品質</span>
+                <span>評価</span>
+              </div>
+              {trends.map((t, i) => (
+                <div key={i} className={`trend-row ${i === 0 ? 'current' : ''}`}>
+                  <span className="trend-week">{t.weekLabel}</span>
+                  <span className={t.completionRate >= 0.8 ? 'text-green' : t.completionRate >= 0.5 ? 'text-orange' : 'text-red'}>
+                    {Math.round(t.completionRate * 100)}%
+                  </span>
+                  <span className={t.avgEstimationAccuracy >= 0.8 && t.avgEstimationAccuracy <= 1.2 ? 'text-green' : 'text-orange'}>
+                    {Math.round(t.avgEstimationAccuracy * 100)}%
+                  </span>
+                  <span>
+                    {t.avgQuality > 0 ? `${t.avgQuality.toFixed(1)}` : '-'}
+                  </span>
+                  <span className="trend-grade">{t.grade}</span>
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
 
         {/* History link */}
         <button
