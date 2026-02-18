@@ -39,7 +39,7 @@ export default function App() {
 
       {/* Header */}
       <header className="app-header">
-        <h1 className="app-title">Task Timer</h1>
+        <h1 className="app-title">タスクタイマー</h1>
         <div className="header-actions">
           <button
             className="icon-btn"
