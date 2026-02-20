@@ -1,5 +1,13 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
-import { TaskItem, createTask, HOURLY_RATE, TaskCategory } from '../models/TaskModel';
+import {
+  TaskItem,
+  createTask,
+  HOURLY_RATE,
+  TaskCategory,
+  flattenTasksDFS,
+  getSortedChildren,
+  normalizeTasks,
+} from '../models/TaskModel';
 import {
   saveTasks,
   loadTodayTasks,
@@ -13,11 +21,10 @@ export type ViewMode = 'normal' | 'compact' | 'summary' | 'history';
 function initTasks(): TaskItem[] {
   autoSaveYesterdaySummary();
 
-  const today = loadTodayTasks();
+  const today = normalizeTasks(loadTodayTasks());
   if (today.length > 0) return today;
 
-  const carryover = loadCarryoverTasks();
-  return carryover;
+  return normalizeTasks(loadCarryoverTasks());
 }
 
 export function useTimer() {
@@ -26,6 +33,12 @@ export function useTimer() {
   const [isRunning, setIsRunning] = useState(false);
   const [viewMode, setViewMode] = useState<ViewMode>('normal');
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  // Ref so completeTask can read latest tasks without stale closure
+  const tasksRef = useRef<TaskItem[]>(tasks);
+  useEffect(() => {
+    tasksRef.current = tasks;
+  }, [tasks]);
 
   const activeTask = tasks.find((t) => t.id === activeTaskId) ?? null;
 
@@ -59,54 +72,102 @@ export function useTimer() {
     }
   }, []);
 
-  const startInterval = useCallback((taskId: string) => {
-    stopInterval();
-    timerRef.current = setInterval(() => {
-      setTasks((prev) =>
-        prev.map((t) =>
-          t.id === taskId ? { ...t, elapsedSeconds: t.elapsedSeconds + 1 } : t
-        )
-      );
-    }, 1000);
-  }, [stopInterval]);
+  const startInterval = useCallback(
+    (taskId: string) => {
+      stopInterval();
+      timerRef.current = setInterval(() => {
+        setTasks((prev) =>
+          prev.map((t) =>
+            t.id === taskId ? { ...t, elapsedSeconds: t.elapsedSeconds + 1 } : t,
+          ),
+        );
+      }, 1000);
+    },
+    [stopInterval],
+  );
 
-  const addTask = useCallback((name: string, estimatedMinutes: number, category?: TaskCategory) => {
-    setTasks((prev) => [...prev, createTask(name, estimatedMinutes, category)]);
-  }, []);
+  // ─── Add root task ───────────────────────────────────────────────────────
+  const addTask = useCallback(
+    (name: string, estimatedMinutes: number, category?: TaskCategory) => {
+      setTasks((prev) => {
+        const roots = prev.filter((t) => !t.parentId);
+        const maxOrder = roots.reduce((m, t) => Math.max(m, t.order ?? 0), -1);
+        return [...prev, createTask(name, estimatedMinutes, category, undefined, maxOrder + 1)];
+      });
+    },
+    [],
+  );
 
-  const deleteTask = useCallback((id: string) => {
-    setActiveTaskId((prev) => {
-      if (prev === id) {
-        stopInterval();
-        setIsRunning(false);
-        return null;
-      }
-      return prev;
-    });
-    setTasks((prev) => prev.filter((t) => t.id !== id));
-  }, [stopInterval]);
+  // ─── Add sub-task ────────────────────────────────────────────────────────
+  const addSubTask = useCallback(
+    (parentId: string, name: string, estimatedMinutes: number, category?: TaskCategory) => {
+      setTasks((prev) => {
+        const siblings = getSortedChildren(parentId, prev);
+        const maxOrder = siblings.reduce((m, t) => Math.max(m, t.order ?? 0), -1);
+        return [
+          ...prev,
+          createTask(name, estimatedMinutes, category, parentId, maxOrder + 1),
+        ];
+      });
+    },
+    [],
+  );
 
-  const selectTask = useCallback((id: string) => {
-    setActiveTaskId((currentActiveId) => {
-      if (currentActiveId === id) {
-        setIsRunning((running) => {
-          if (running) {
-            stopInterval();
-            return false;
-          } else {
-            startInterval(id);
-            return true;
+  // ─── Delete task (cascades to all descendants) ────────────────────────────
+  const deleteTask = useCallback(
+    (id: string) => {
+      setTasks((prev) => {
+        // Collect all descendant IDs using BFS
+        const toDelete = new Set<string>();
+        const queue = [id];
+        while (queue.length > 0) {
+          const cur = queue.pop()!;
+          toDelete.add(cur);
+          for (const t of prev) {
+            if (t.parentId === cur) queue.push(t.id);
           }
+        }
+
+        setActiveTaskId((activeId) => {
+          if (activeId && toDelete.has(activeId)) {
+            stopInterval();
+            setIsRunning(false);
+            return null;
+          }
+          return activeId;
         });
-        return currentActiveId;
-      } else {
-        stopInterval();
-        startInterval(id);
-        setIsRunning(true);
-        return id;
-      }
-    });
-  }, [stopInterval, startInterval]);
+
+        return prev.filter((t) => !toDelete.has(t.id));
+      });
+    },
+    [stopInterval],
+  );
+
+  // ─── Select / toggle task ────────────────────────────────────────────────
+  const selectTask = useCallback(
+    (id: string) => {
+      setActiveTaskId((currentActiveId) => {
+        if (currentActiveId === id) {
+          setIsRunning((running) => {
+            if (running) {
+              stopInterval();
+              return false;
+            } else {
+              startInterval(id);
+              return true;
+            }
+          });
+          return currentActiveId;
+        } else {
+          stopInterval();
+          startInterval(id);
+          setIsRunning(true);
+          return id;
+        }
+      });
+    },
+    [stopInterval, startInterval],
+  );
 
   const pauseTimer = useCallback(() => {
     stopInterval();
@@ -126,30 +187,73 @@ export function useTimer() {
     setActiveTaskId(null);
   }, [stopInterval]);
 
-  const completeTask = useCallback((id: string) => {
-    setTasks((prev) =>
-      prev.map((t) => (t.id === id ? { ...t, isCompleted: true } : t))
-    );
-    setActiveTaskId((prev) => {
-      if (prev === id) {
-        stopInterval();
-        setIsRunning(false);
-        return null;
-      }
-      return prev;
-    });
-  }, [stopInterval]);
+  // ─── Complete task → auto-advance to next in DFS order ───────────────────
+  const completeTask = useCallback(
+    (id: string) => {
+      let nextTaskId: string | null = null;
+
+      setTasks((prev) => {
+        const updated = prev.map((t) => (t.id === id ? { ...t, isCompleted: true } : t));
+        const flat = flattenTasksDFS(updated);
+        const idx = flat.findIndex((t) => t.id === id);
+        const next = flat.slice(idx + 1).find((t) => !t.isCompleted);
+        nextTaskId = next?.id ?? null;
+        return updated;
+      });
+
+      // Schedule auto-start after state is committed
+      setTimeout(() => {
+        if (nextTaskId) {
+          startInterval(nextTaskId);
+          setActiveTaskId(nextTaskId);
+          setIsRunning(true);
+        } else {
+          stopInterval();
+          setIsRunning(false);
+          setActiveTaskId(null);
+        }
+      }, 0);
+    },
+    [stopInterval, startInterval],
+  );
+
+  // ─── Reorder tasks within the same parent group ──────────────────────────
+  const reorderTasks = useCallback(
+    (draggedId: string, targetId: string, position: 'before' | 'after') => {
+      setTasks((prev) => {
+        const dragged = prev.find((t) => t.id === draggedId);
+        const target = prev.find((t) => t.id === targetId);
+        if (!dragged || !target || dragged.id === target.id) return prev;
+        if (dragged.parentId !== target.parentId) return prev;
+
+        const siblings = getSortedChildren(dragged.parentId, prev);
+        const withoutDragged = siblings.filter((t) => t.id !== draggedId);
+        const targetIdx = withoutDragged.findIndex((t) => t.id === targetId);
+        const insertIdx = position === 'before' ? targetIdx : targetIdx + 1;
+
+        const newSiblings = [
+          ...withoutDragged.slice(0, insertIdx),
+          dragged,
+          ...withoutDragged.slice(insertIdx),
+        ];
+
+        const orderMap = new Map(newSiblings.map((t, i) => [t.id, i]));
+        return prev.map((t) =>
+          orderMap.has(t.id) ? { ...t, order: orderMap.get(t.id)! } : t,
+        );
+      });
+    },
+    [],
+  );
 
   const rateTask = useCallback((id: string, rating: 1 | 2 | 3 | 4 | 5) => {
-    setTasks((prev) =>
-      prev.map((t) => (t.id === id ? { ...t, qualityRating: rating } : t))
-    );
+    setTasks((prev) => prev.map((t) => (t.id === id ? { ...t, qualityRating: rating } : t)));
   }, []);
 
   const updateEstimate = useCallback((id: string, newMinutes: number) => {
     if (newMinutes <= 0) return;
     setTasks((prev) =>
-      prev.map((t) => (t.id === id ? { ...t, estimatedMinutes: newMinutes } : t))
+      prev.map((t) => (t.id === id ? { ...t, estimatedMinutes: newMinutes } : t)),
     );
   }, []);
 
@@ -166,6 +270,7 @@ export function useTimer() {
     completedTaskCount,
     setViewMode,
     addTask,
+    addSubTask,
     deleteTask,
     selectTask,
     startTimer,
@@ -174,5 +279,6 @@ export function useTimer() {
     completeTask,
     rateTask,
     updateEstimate,
+    reorderTasks,
   };
 }

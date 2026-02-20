@@ -41,11 +41,20 @@ export interface TaskItem {
   carryoverDays?: number; // how many days carried over
   qualityRating?: 1 | 2 | 3 | 4 | 5;
   category?: TaskCategory;
+  parentId?: string;   // undefined = root task
+  order: number;       // sort order within siblings
 }
 
 export const HOURLY_RATE = 1200;
+export const MAX_DEPTH = 2; // 3 levels: 0 (root), 1, 2
 
-export function createTask(name: string, estimatedMinutes: number, category?: TaskCategory): TaskItem {
+export function createTask(
+  name: string,
+  estimatedMinutes: number,
+  category?: TaskCategory,
+  parentId?: string,
+  order = 0,
+): TaskItem {
   return {
     id: crypto.randomUUID(),
     name,
@@ -53,7 +62,59 @@ export function createTask(name: string, estimatedMinutes: number, category?: Ta
     elapsedSeconds: 0,
     isCompleted: false,
     category: category ?? 'other',
+    parentId,
+    order,
   };
+}
+
+// Return direct children of parentId sorted by order
+export function getSortedChildren(parentId: string | undefined, tasks: TaskItem[]): TaskItem[] {
+  return tasks
+    .filter((t) => t.parentId === parentId)
+    .sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+}
+
+// DFS traversal: root tasks → their children recursively
+export function flattenTasksDFS(tasks: TaskItem[]): TaskItem[] {
+  const result: TaskItem[] = [];
+  function traverse(parentId?: string) {
+    for (const t of getSortedChildren(parentId, tasks)) {
+      result.push(t);
+      traverse(t.id);
+    }
+  }
+  traverse(undefined);
+  return result;
+}
+
+// Get nesting depth of a task (0=root, 1=child, 2=grandchild)
+export function getTaskDepth(taskId: string, tasks: TaskItem[]): number {
+  let depth = 0;
+  let currentId: string | undefined = taskId;
+  const visited = new Set<string>();
+  while (currentId) {
+    if (visited.has(currentId)) break;
+    visited.add(currentId);
+    const task = tasks.find((t) => t.id === currentId);
+    if (!task?.parentId) break;
+    depth++;
+    currentId = task.parentId;
+    if (depth >= 3) break;
+  }
+  return depth;
+}
+
+// Normalize tasks from storage: assign order if missing
+export function normalizeTasks(tasks: TaskItem[]): TaskItem[] {
+  // Group by parentId to assign sequential order
+  const counters = new Map<string | undefined, number>();
+  return tasks.map((t) => {
+    if (t.order != null) return t;
+    const key = t.parentId;
+    const n = counters.get(key) ?? 0;
+    counters.set(key, n + 1);
+    return { ...t, order: n };
+  });
 }
 
 export function estimatedSeconds(task: TaskItem): number {

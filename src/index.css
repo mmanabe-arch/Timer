@@ -1738,3 +1738,107 @@ body {
   font-weight: 800;
   text-align: center;
 }
+
+/* ===== Hierarchical Tasks ===== */
+
+/* Drag handle (6-dot grip) */
+.drag-handle {
+  cursor: grab;
+  padding: 2px 2px;
+  border-radius: 3px;
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+  opacity: 0;
+  transition: opacity 0.15s;
+  touch-action: none;
+  color: var(--text-secondary);
+}
+
+.task-row:hover .drag-handle {
+  opacity: 1;
+}
+
+.drag-handle:active {
+  cursor: grabbing;
+}
+
+/* Being dragged */
+.task-row.dragging {
+  opacity: 0.4;
+  background: var(--bg-secondary) !important;
+}
+
+/* Drop indicator line */
+.drop-indicator {
+  height: 2px;
+  background: var(--primary);
+  border-radius: 1px;
+  margin: 1px 12px;
+  box-shadow: 0 0 0 2px rgba(26, 109, 78, 0.2);
+}
+
+/* Subtask └ arrow prefix */
+.subtask-arrow {
+  color: var(--text-tertiary);
+  font-size: 11px;
+  margin-right: 2px;
+  flex-shrink: 0;
+}
+
+/* Add subtask (+) button — shown on hover */
+.add-subtask-btn {
+  background: none;
+  border: 1px solid transparent;
+  cursor: pointer;
+  padding: 3px 5px;
+  border-radius: var(--radius-sm);
+  color: var(--text-tertiary);
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+  opacity: 0;
+  transition: all 0.15s;
+}
+
+.task-row:hover .add-subtask-btn {
+  opacity: 1;
+}
+
+.add-subtask-btn:hover {
+  background: var(--primary-bg);
+  border-color: rgba(26, 109, 78, 0.2);
+  color: var(--primary);
+}
+
+/* Sub-task inline add form */
+.sub-add-form {
+  padding: 10px 12px;
+  margin: 2px 0 4px;
+  background: var(--bg);
+  border-radius: var(--radius);
+  border: 1px solid var(--border-light);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  border-left: 3px solid var(--primary);
+}
+
+.sub-category-selector {
+  margin-bottom: 0;
+}
+
+/* Depth-based left border accent for child tasks */
+.task-row.depth-1 {
+  border-left: 2px solid var(--border-light);
+}
+
+.task-row.depth-2 {
+  border-left: 2px solid var(--border-light);
+  opacity: 0.95;
+}
+
+.task-row.depth-1.active,
+.task-row.depth-2.active {
+  border-left-color: var(--primary);
+}
