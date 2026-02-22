@@ -57,6 +57,12 @@ export function loadTodayTasks(): TaskItem[] {
   }
 }
 
+// Returns true if today's task key exists in localStorage
+// (even when the stored array is empty, meaning the user deleted everything intentionally)
+export function hasTodayTasksKey(): boolean {
+  return localStorage.getItem(TASKS_PREFIX + todayKey()) !== null;
+}
+
 function daysBetween(dateA: string, dateB: string): number {
   const a = new Date(dateA + 'T00:00:00');
   const b = new Date(dateB + 'T00:00:00');

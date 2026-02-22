@@ -11,6 +11,7 @@ import {
 import {
   saveTasks,
   loadTodayTasks,
+  hasTodayTasksKey,
   loadCarryoverTasks,
   autoSaveYesterdaySummary,
   saveDailySummary,
@@ -21,8 +22,11 @@ export type ViewMode = 'normal' | 'compact' | 'summary' | 'history';
 function initTasks(): TaskItem[] {
   autoSaveYesterdaySummary();
 
-  const today = normalizeTasks(loadTodayTasks());
-  if (today.length > 0) return today;
+  // If today's localStorage key exists (even as empty array),
+  // the user has intentionally set up today's tasks — do NOT fall back to carryover.
+  if (hasTodayTasksKey()) {
+    return normalizeTasks(loadTodayTasks());
+  }
 
   return normalizeTasks(loadCarryoverTasks());
 }
